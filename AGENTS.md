@@ -41,7 +41,7 @@ bash extract-ucrtbase.sh "/path/to/vc_redist.x64.exe"
 
 - Ask the user to close CoH2 and Windows Steam if either is running. Do not terminate an active match.
 - Keep Graphics, MSync, Steam Cloud, and unrelated bottle settings as configured.
-- Always pass `--dll` with the actual extracted file path. Without that option, the script looks beside itself, not in Downloads.
+- Pass `--dll` with the actual extracted file path when applying or validating the fix. The flag is required for those commands. Undo uses the saved backup and does not need it.
 - Replace the example paths below with the selected bottle and DLL paths. Add `--crossover` to every fix or undo command if CrossOver is installed elsewhere.
 - Validate first:
 
@@ -80,6 +80,7 @@ bash fix-coh2.sh --bottle-path "/path/to/bottle" --undo
 ```
 
 - Undo restores the state before this script's first application. It does not undo earlier manual fixes.
+- CoH2 does not need to remain installed for undo. The extracted DLL is not required either.
 - If the script reports that a DLL or override changed separately, investigate rather than overwriting that change.
 
 ## Credit

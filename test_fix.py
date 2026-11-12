@@ -102,6 +102,74 @@ class FixTests(unittest.TestCase):
         self.assertEqual(self.system.read_bytes(), self.original)
         self.assertEqual(self.values, self.previous)
 
+    def interrupt_registry_write_once(self):
+        registry = self.ns['Registry']
+        original_write = registry.write_all
+        interrupted = False
+        test = self
+
+        def write(self, values):
+            nonlocal interrupted
+            if not interrupted:
+                interrupted = True
+                test.values['ucrtbase'] = values['ucrtbase']
+                raise KeyboardInterrupt()
+            return original_write(self, values)
+
+        return mock.patch.object(registry, 'write_all', write)
+
+    def test_interrupted_apply_restores_file_and_partial_overrides(self):
+        with self.interrupt_registry_write_once():
+            with self.assertRaisesRegex(KeyboardInterrupt, 'previous state was restored'):
+                self.run_main()
+        self.assertEqual(self.system.read_bytes(), self.original)
+        self.assertEqual(self.values, self.previous)
+
+    def test_interrupted_undo_restores_applied_state(self):
+        self.run_main()
+        applied_overrides = dict(self.values)
+        with self.interrupt_registry_write_once():
+            with self.assertRaisesRegex(KeyboardInterrupt, 'previous state was restored'):
+                self.run_main('--undo')
+        self.assertEqual(self.system.read_bytes(), self.replacement)
+        self.assertEqual(self.values, applied_overrides)
+
+    def test_interrupted_backup_is_removed_before_any_bottle_change(self):
+        original_write = self.ns['write_atomic']
+
+        def interrupt_backup(path, data, mode=0o644):
+            original_write(path, data, mode)
+            if path.name == 'ucrtbase.original.dll':
+                raise KeyboardInterrupt()
+
+        self.ns['write_atomic'] = interrupt_backup
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_main()
+        self.assertFalse(self.backup.exists())
+        self.assertEqual(self.system.read_bytes(), self.original)
+        self.assertEqual(self.values, self.previous)
+
+    def test_apply_and_validation_require_explicit_dll(self):
+        for extra in [[], ['--dry-run']]:
+            with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()) as errors:
+                with self.assertRaises(SystemExit) as result:
+                    self.ns['main'](['--bottle-path', str(self.bottle), '--crossover', str(self.app), *extra])
+                self.assertEqual(result.exception.code, 2)
+                self.assertIn('--dll is required', errors.getvalue())
+        self.assertFalse(self.closed_checks)
+        self.assertFalse(self.backup.exists())
+        self.assertEqual(self.system.read_bytes(), self.original)
+
+    def test_undo_requires_neither_game_nor_extracted_dll(self):
+        self.run_main()
+        game = self.bottle / 'drive_c/Program Files (x86)/Steam/steamapps/common/Company of Heroes 2/RelicCoH2.exe'
+        game.unlink()
+        self.dll.unlink()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.ns['main'](['--bottle-path', str(self.bottle), '--crossover', str(self.app), '--undo'])
+        self.assertEqual(self.system.read_bytes(), self.original)
+        self.assertEqual(self.values, self.previous)
+
     def test_modified_dll_is_not_overwritten_on_undo(self):
         self.run_main()
         self.system.write_bytes(b'separately changed DLL')

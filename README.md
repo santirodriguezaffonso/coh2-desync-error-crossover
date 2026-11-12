@@ -84,7 +84,9 @@ bash fix-coh2.sh --bottle "Company of Heroes 2" --dll "$HOME/Downloads/ucrtbase.
 
 `--bottle "Company of Heroes 2"` is the name of your bottle. Where you have the game installed, change it if different.
 
-`--dll "$HOME/Downloads/ucrtbase.dll"` is the path of the extracted file. The script by default expects to find it in Downloads, where it was extracted.
+`--dll "$HOME/Downloads/ucrtbase.dll"` is required when applying the fix, including runs with `--dry-run`. Pass the path of the extracted file. The script does not choose a default DLL path.
+
+- If Ctrl+C interrupts a change, the script restores the previous DLL and overrides before exiting. An interrupted backup is removed before any DLL or override changes.
 
 ---
 
@@ -107,6 +109,7 @@ bash fix-coh2.sh --bottle "Company of Heroes 2" --undo
 ```
 
 - Undo restores the state before this script's first application. It does not undo earlier manual fixes.
+- Undo uses the saved backup. It requires neither an installed copy of CoH2 nor the extracted DLL, so omit `--dll`.
 
 Custom paths:
 

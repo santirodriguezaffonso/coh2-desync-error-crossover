@@ -1,8 +1,6 @@
 #!/bin/bash
 # Requires Python 3. Uses an already-extracted Microsoft DLL; never downloads files.
 set -eu
-script_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
-export COH2_FIX_SCRIPT_DIR="$script_dir"
 exec python3 - "$@" <<'PYTHON'
 import argparse
 import hashlib
@@ -128,7 +126,7 @@ def save_backup(folder, state, overrides):
                     'original_mode': state['mode'], 'original_symlink': state['symlink'],
                     'previous_overrides': overrides, 'replacement_sha256': DLL_HASH}
         write_atomic(folder / 'manifest.json', (json.dumps(manifest, indent=2) + '\n').encode(), 0o600)
-    except Exception:
+    except BaseException:
         # Remove only the new, incomplete backup created by this call.
         for name in ('ucrtbase.original.dll', 'manifest.json'):
             candidate = folder / name
@@ -157,13 +155,17 @@ def change(system, registry, desired_file, desired_overrides):
         registry.write_all(desired_overrides)
         if sha(system.read_bytes()) != sha(desired_file['bytes']):
             raise RuntimeError('Installed DLL failed checksum verification.')
-    except Exception as error:
+    except BaseException as error:
         # Restore the state from this invocation, including partial registry writes.
         try:
             restore_file(system, before)
             registry.write_all(overrides_before)
-        except Exception as rollback_error:
+        except BaseException as rollback_error:
             raise RuntimeError(f'{error}; automatic rollback also failed: {rollback_error}') from error
+        if isinstance(error, KeyboardInterrupt):
+            raise KeyboardInterrupt('Cancelled; the previous state was restored.') from error
+        if not isinstance(error, Exception):
+            raise
         raise RuntimeError(f'{error}; the previous state was restored.') from error
 
 
@@ -172,11 +174,13 @@ def main(argv=None):
     location = parser.add_mutually_exclusive_group()
     location.add_argument('--bottle', help='Bottle name in the default CrossOver Bottles folder')
     location.add_argument('--bottle-path', type=Path, help='Full path to a bottle in a custom location')
-    parser.add_argument('--dll', type=Path, help='Extracted Microsoft ucrtbase.dll; defaults to beside this script')
+    parser.add_argument('--dll', type=Path, help='Extracted Microsoft ucrtbase.dll; required when applying or validating, not for --undo')
     parser.add_argument('--crossover', type=Path, default=Path('/Applications/CrossOver.app'), help='CrossOver application path')
     parser.add_argument('--undo', action='store_true', help='Restore the automatically saved original DLL and overrides')
     parser.add_argument('--dry-run', action='store_true', help='Validate files and show the plan without starting Wine or changing the bottle')
     args = parser.parse_args(argv)
+    if not args.undo and args.dll is None:
+        parser.error('--dll is required when applying or validating the fix')
     name = args.bottle or 'Company of Heroes 2'
     if not args.bottle_path and (name in ('.', '..') or '/' in name or '\\' in name):
         parser.error('Use a bottle name, or --bottle-path for a full path.')
@@ -187,7 +191,9 @@ def main(argv=None):
         raise RuntimeError(f'CrossOver bottle not found: {bottle}')
     system = bottle / 'drive_c/windows/system32/ucrtbase.dll'
     game = bottle / 'drive_c/Program Files (x86)/Steam/steamapps/common/Company of Heroes 2/RelicCoH2.exe'
-    if not system.is_file() or not game.is_file():
+    if not system.is_file():
+        raise RuntimeError('The system UCRT was not found in this bottle.')
+    if not args.undo and not game.is_file():
         raise RuntimeError('CoH2 or the system UCRT was not found in this bottle. Custom Steam library locations are not supported.')
     wine = args.crossover.expanduser() / 'Contents/SharedSupport/CrossOver/bin/wine'
     if not wine.is_file():
@@ -201,7 +207,7 @@ def main(argv=None):
         desired_file = {'bytes': original, 'mode': manifest['original_mode'], 'symlink': manifest['original_symlink']}
         desired_overrides = manifest['previous_overrides']
     else:
-        source = args.dll.expanduser() if args.dll else Path(os.environ['COH2_FIX_SCRIPT_DIR']) / 'ucrtbase.dll'
+        source = args.dll.expanduser()
         data = source.read_bytes()
         check_pe(data, 'Replacement UCRT')
         if sha(data) != DLL_HASH:
@@ -244,6 +250,9 @@ def main(argv=None):
 if __name__ == '__main__':
     try:
         main()
+    except KeyboardInterrupt as error:
+        print(str(error) or 'Cancelled.', file=sys.stderr)
+        sys.exit(130)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print('Error:', error, file=sys.stderr)
         sys.exit(1)
