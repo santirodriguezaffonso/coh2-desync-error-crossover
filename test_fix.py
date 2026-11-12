@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import shlex
 import struct
 import tempfile
 import unittest
@@ -46,9 +47,16 @@ class FixTests(unittest.TestCase):
         wine = self.app / 'Contents/SharedSupport/CrossOver/bin/wine'
         wine.parent.mkdir(parents=True)
         wine.touch()
+        self.preview_app = self.root / 'CrossOver Preview.app'
+        preview_wine = self.preview_app / 'Contents/SharedSupport/CrossOver/bin/wine'
+        preview_wine.parent.mkdir(parents=True)
+        preview_wine.touch()
         self.ns = {'__name__': 'coh2_test_module'}
         exec(compile(SOURCE, str(SCRIPT), 'exec'), self.ns)
         self.ns['DLL_HASH'] = hashlib.sha256(self.replacement).hexdigest()
+        self.ns['CROSSOVER_APP'] = self.app
+        self.ns['CROSSOVER_PREVIEW_APP'] = self.preview_app
+        self.selected_wine = []
         self.closed_checks = []
         self.ns['ensure_closed'] = lambda: self.closed_checks.append(True)
         self.values = dict.fromkeys(self.ns['LIBRARIES'])
@@ -60,6 +68,7 @@ class FixTests(unittest.TestCase):
         class FakeRegistry:
             def __init__(self, wine, bottle):
                 self.wine, self.bottle = wine, bottle
+                test.selected_wine.append(wine)
 
             def read_all(self):
                 return dict(test.values)
@@ -76,7 +85,7 @@ class FixTests(unittest.TestCase):
         self.backup = self.bottle / 'coh2-ucrt-fix-backup'
 
     def run_main(self, *extra):
-        argv = ['--bottle-path', str(self.bottle), '--crossover', str(self.app), '--dll', str(self.dll), *extra]
+        argv = ['--bottle-path', str(self.bottle), '--dll', str(self.dll), *extra]
         with contextlib.redirect_stdout(io.StringIO()):
             self.ns['main'](argv)
 
@@ -94,6 +103,32 @@ class FixTests(unittest.TestCase):
         self.run_main()
         self.assertEqual((self.backup / 'manifest.json').read_bytes(), before)
         self.assertEqual((self.backup / 'ucrtbase.original.dll').read_bytes(), self.original)
+
+    def test_standard_crossover_is_selected_without_flag(self):
+        self.run_main()
+        self.assertEqual(self.selected_wine[-1], self.app / 'Contents/SharedSupport/CrossOver/bin/wine')
+
+    def test_preview_flag_and_printed_undo_select_preview(self):
+        args = ['--bottle-path', str(self.bottle), '--dll', str(self.dll), '--crossoverPreview']
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            self.ns['main'](args)
+        preview_wine = self.preview_app / 'Contents/SharedSupport/CrossOver/bin/wine'
+        self.assertEqual(self.selected_wine[-1], preview_wine)
+        undo = next(line[len('Undo command: '):] for line in output.getvalue().splitlines() if line.startswith('Undo command: '))
+        undo_args = shlex.split(undo)
+        self.assertIn('--crossoverPreview', undo_args)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.ns['main'](undo_args[2:])
+        self.assertEqual(self.selected_wine[-1], preview_wine)
+        self.assertEqual(self.system.read_bytes(), self.original)
+        self.assertEqual(self.values, self.previous)
+
+    def test_missing_preview_does_not_fall_back_to_standard(self):
+        (self.preview_app / 'Contents/SharedSupport/CrossOver/bin/wine').unlink()
+        with self.assertRaisesRegex(RuntimeError, 'CrossOver executable not found'):
+            self.run_main('--crossoverPreview')
+        self.assertFalse(self.backup.exists())
+        self.assertEqual(self.system.read_bytes(), self.original)
 
     def test_partial_registry_failure_rolls_back(self):
         self.fail_once = True
@@ -153,7 +188,7 @@ class FixTests(unittest.TestCase):
         for extra in [[], ['--dry-run']]:
             with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()) as errors:
                 with self.assertRaises(SystemExit) as result:
-                    self.ns['main'](['--bottle-path', str(self.bottle), '--crossover', str(self.app), *extra])
+                    self.ns['main'](['--bottle-path', str(self.bottle), *extra])
                 self.assertEqual(result.exception.code, 2)
                 self.assertIn('--dll is required', errors.getvalue())
         self.assertFalse(self.closed_checks)
@@ -166,7 +201,7 @@ class FixTests(unittest.TestCase):
         game.unlink()
         self.dll.unlink()
         with contextlib.redirect_stdout(io.StringIO()):
-            self.ns['main'](['--bottle-path', str(self.bottle), '--crossover', str(self.app), '--undo'])
+            self.ns['main'](['--bottle-path', str(self.bottle), '--undo'])
         self.assertEqual(self.system.read_bytes(), self.original)
         self.assertEqual(self.values, self.previous)
 

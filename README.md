@@ -74,6 +74,16 @@ Paste and run the next command:
 bash fix-coh2.sh --bottle "Company of Heroes 2" --dll "$HOME/Downloads/ucrtbase.dll"
 ```
 
+- The script uses `/Applications/CrossOver.app` by default.
+- If you use CrossOver Preview, add `--crossoverPreview`. This flag takes no value and selects `/Applications/CrossOver Preview.app`.
+- Use the same flag when applying, validating with `--dry-run`, or undoing the fix. The printed undo command includes it when Preview was selected.
+
+Apply with CrossOver Preview:
+
+```bash
+bash fix-coh2.sh --bottle "Company of Heroes 2" --dll "$HOME/Downloads/ucrtbase.dll" --crossoverPreview
+```
+
 - The script saves the previous system DLL and CoH2-specific overrides in `coh2-ucrt-fix-backup` inside the bottle. Repeat runs preserve that first backup.
 - It installs the new system DLL in `drive_c/windows/system32` and selects native `ucrtbase`, `concrt140`, `vcruntime140`, and `vcruntime140_1` only for `RelicCoH2.exe`.
 - It leaves Graphics, MSync, Windows version, and Steam Cloud settings as configured.
@@ -107,6 +117,8 @@ In case something went wrong and you don't want to re-create the bottle, run the
 ```bash
 bash fix-coh2.sh --bottle "Company of Heroes 2" --undo
 ```
+
+- For CrossOver Preview, add `--crossoverPreview` to the undo command.
 
 - Undo restores the state before this script's first application. It does not undo earlier manual fixes.
 - Undo uses the saved backup. It requires neither an installed copy of CoH2 nor the extracted DLL, so omit `--dll`.

@@ -18,6 +18,8 @@ DLL_HASH = '05fdef5f91cd38055021c6e7ae83b32936b30b6032f7ccf05b2b50233ab7fe9b'
 KEY = r'HKCU\Software\Wine\AppDefaults\RelicCoH2.exe\DllOverrides'
 LIBRARIES = ('ucrtbase', 'concrt140', 'vcruntime140', 'vcruntime140_1')
 LOAD_ORDER = 'native,builtin'
+CROSSOVER_APP = Path('/Applications/CrossOver.app')
+CROSSOVER_PREVIEW_APP = Path('/Applications/CrossOver Preview.app')
 
 
 def sha(data):
@@ -175,7 +177,7 @@ def main(argv=None):
     location.add_argument('--bottle', help='Bottle name in the default CrossOver Bottles folder')
     location.add_argument('--bottle-path', type=Path, help='Full path to a bottle in a custom location')
     parser.add_argument('--dll', type=Path, help='Extracted Microsoft ucrtbase.dll; required when applying or validating, not for --undo')
-    parser.add_argument('--crossover', type=Path, default=Path('/Applications/CrossOver.app'), help='CrossOver application path')
+    parser.add_argument('--crossoverPreview', dest='crossover_preview', action='store_true', help='Use /Applications/CrossOver Preview.app instead of /Applications/CrossOver.app')
     parser.add_argument('--undo', action='store_true', help='Restore the automatically saved original DLL and overrides')
     parser.add_argument('--dry-run', action='store_true', help='Validate files and show the plan without starting Wine or changing the bottle')
     args = parser.parse_args(argv)
@@ -195,7 +197,8 @@ def main(argv=None):
         raise RuntimeError('The system UCRT was not found in this bottle.')
     if not args.undo and not game.is_file():
         raise RuntimeError('CoH2 or the system UCRT was not found in this bottle. Custom Steam library locations are not supported.')
-    wine = args.crossover.expanduser() / 'Contents/SharedSupport/CrossOver/bin/wine'
+    crossover = CROSSOVER_PREVIEW_APP if args.crossover_preview else CROSSOVER_APP
+    wine = crossover / 'Contents/SharedSupport/CrossOver/bin/wine'
     if not wine.is_file():
         raise RuntimeError(f'CrossOver executable not found: {wine}')
     backup = bottle / 'coh2-ucrt-fix-backup'
@@ -244,7 +247,10 @@ def main(argv=None):
     print('Graphics, MSync, Windows version, and Steam Cloud settings were not changed.')
     if not args.undo:
         print('Next: launch CoH2, verify native runtime loading, and test a private multiplayer match.')
-    print('Undo command: bash fix-coh2.sh --bottle-path ' + shlex.quote(str(bottle)) + ' --undo')
+    undo_command = ['bash', 'fix-coh2.sh', '--bottle-path', str(bottle), '--undo']
+    if args.crossover_preview:
+        undo_command.append('--crossoverPreview')
+    print('Undo command: ' + ' '.join(shlex.quote(arg) for arg in undo_command))
 
 
 if __name__ == '__main__':

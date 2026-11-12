@@ -10,7 +10,7 @@
 
 - Find this repository and run commands from its directory. A GitHub ZIP works. Git is not required.
 - Check that `python3` and `/usr/bin/bsdtar` are available.
-- Find CrossOver. The script defaults to `/Applications/CrossOver.app`. Pass `--crossover` for another installation.
+- Find which CrossOver application the user uses. The script defaults to `/Applications/CrossOver.app`. Use `--crossoverPreview` for `/Applications/CrossOver Preview.app`. The flag takes no value.
 - Find the bottle containing Windows CoH2. Start with `~/Library/Application Support/CrossOver/Bottles`.
 - Use `--bottle-path` for the selected bottle so commands target its exact location.
 - If several bottles contain CoH2 and the intended bottle is unclear, ask the user which one to use.
@@ -42,7 +42,7 @@ bash extract-ucrtbase.sh "/path/to/vc_redist.x64.exe"
 - Ask the user to close CoH2 and Windows Steam if either is running. Do not terminate an active match.
 - Keep Graphics, MSync, Steam Cloud, and unrelated bottle settings as configured.
 - Pass `--dll` with the actual extracted file path when applying or validating the fix. The flag is required for those commands. Undo uses the saved backup and does not need it.
-- Replace the example paths below with the selected bottle and DLL paths. Add `--crossover` to every fix or undo command if CrossOver is installed elsewhere.
+- Replace the example paths below with the selected bottle and DLL paths. Add `--crossoverPreview` to apply, dry-run, and undo commands when using CrossOver Preview.
 - Validate first:
 
 ```bash
