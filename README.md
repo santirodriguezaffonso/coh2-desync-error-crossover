@@ -5,11 +5,21 @@
 These scripts apply a workaround for Company of Heroes 2 multiplayer desync error in CrossOver.
 
 - `extract-ucrtbase.sh` extracts Microsoft's x64 `ucrtbase.dll` from a local Visual C++ installer.
-- `fix-coh2.sh` backs up the bottle's existing DLL and CoH2-specific overrides, installs the extracted DLL, and configures `RelicCoH2.exe` to prefer Microsoft's native C/C++ runtime libraries. 
+- `fix-coh2.sh` backs up the bottle's existing DLL and CoH2-specific overrides, installs the extracted DLL, and configures `RelicCoH2.exe` to prefer Microsoft's native C/C++ runtime libraries.
 
-This is intended to address runtime differences that can cause multiplayer desyncs; verify the result in a multiplayer match. The scripts download nothing, and `--undo` restores the backed-up DLL and overrides. 
+This is intended to address runtime differences that can cause multiplayer desyncs; verify the result in a multiplayer match. The scripts download nothing, and `--undo` restores the backed-up DLL and overrides.
 
 *This is based on the UCRT workaround documented by [jrbergen](https://gist.github.com/jrbergen/0ce746676c4fbcc2becd6054d1bba2ed), with CrossOver-specific DLL overrides.*
+
+## AI-assisted setup
+
+- Open this repository folder in an assistant with local file and terminal access to your Mac.
+- Paste this prompt:
+
+> Read AGENTS.md in this folder and apply the CoH2 CrossOver fix on my Mac. Ask me for any details you cannot determine locally.
+
+- AGENTS.md contains the setup, backup, verification, and undo instructions.
+- After setup, test a multiplayer match as described in step 4.
 
 ## Prerequisites
 
@@ -25,7 +35,7 @@ This is intended to address runtime differences that can cause multiplayer desyn
 
 Download the older [Visual C++ 2015 x64 installer](https://www.microsoft.com/en-us/download/details.aspx?id=48145) to extract `ucrtbase.dll`. Save `vc_redist.x64.exe` in Downloads, or adjust the installer path in step 2. Extract this older package without installing it. The current x64 runtime listed in the prerequisites must already be installed inside the bottle.
 
-**Non-dev:** 
+**Non-dev:**
 If you don't have `git` on your Mac: **Click Code** → **Download ZIP**. If the ZIP isn't already extracted, double-click it in Finder to extract it. Proceed.
 
 ---
