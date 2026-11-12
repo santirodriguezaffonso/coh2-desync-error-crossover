@@ -131,3 +131,7 @@ bash fix-coh2.sh --bottle-path "/Volumes/Games/CrossOver/CoH2" --dll "/path/to/u
 
 - Custom Steam game-library locations are not supported. Custom bottle locations are supported with `--bottle-path`.
 - File and registry verification confirms installation. Confirm actual native runtime loading and multiplayer stability in the game afterward.
+
+## Feedback
+
+If this fix helped you get back into the game, consider giving the repo a star. If you run into problems, open an issue and include any relevant logs so we can help troubleshoot.
